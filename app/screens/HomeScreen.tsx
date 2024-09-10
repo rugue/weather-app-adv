@@ -1,15 +1,17 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
   Button,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useAppSelector } from "../../hooks/useAppSelector";
 import { useAppDispatch } from "../../hooks/useAppDispatch";
-import { fetchWeatherData } from "../store/weatherSlice";
+import { fetchWeatherData, setCity } from "../store/weatherSlice";
 
 const HomeScreen: React.FC = () => {
   const router = useRouter();
@@ -18,60 +20,64 @@ const HomeScreen: React.FC = () => {
     data: weatherData,
     loading,
     error,
+    city,
   } = useAppSelector((state) => state.weather);
+  const [inputCity, setInputCity] = useState(city);
 
-  const fetchWeather = useCallback(() => {
-    dispatch(fetchWeatherData("London"));
-  }, [dispatch]);
+  const fetchWeather = useCallback(
+    (cityName: string) => {
+      if (cityName.trim()) {
+        dispatch(setCity(cityName.trim()));
+        dispatch(fetchWeatherData(cityName.trim()));
+      } else {
+        Alert.alert("Invalid Input", "Please enter a valid city name.");
+      }
+    },
+    [dispatch]
+  );
 
-  useEffect(() => {
-    fetchWeather();
-  }, [fetchWeather]);
-
-  if (loading) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#0000ff" />
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <Text>Error: {error}</Text>
-        <Button title="Retry" onPress={fetchWeather} />
-      </View>
-    );
-  }
-
-  if (!weatherData) {
-    return (
-      <View style={styles.container}>
-        <Text>No weather data available</Text>
-        <Button title="Fetch Weather" onPress={fetchWeather} />
-      </View>
-    );
-  }
+  const handleSubmit = () => {
+    fetchWeather(inputCity);
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.city}>{weatherData.name}</Text>
-      <Text style={styles.temperature}>
-        {Math.round(weatherData.main.temp)}°C
-      </Text>
-      <Text style={styles.description}>
-        {weatherData.weather[0].description}
-      </Text>
-      <Button
-        title="View Details"
-        onPress={() =>
-          router.push({
-            pathname: "/details",
-            params: { weatherData: JSON.stringify(weatherData) },
-          })
-        }
-      />
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          value={inputCity}
+          onChangeText={setInputCity}
+          placeholder="Enter city name"
+        />
+        <Button title="Search" onPress={handleSubmit} disabled={loading} />
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : error ? (
+        <Text style={styles.error}>Error: {error}</Text>
+      ) : weatherData ? (
+        <>
+          <Text style={styles.city}>{weatherData.name}</Text>
+          <Text style={styles.temperature}>
+            {Math.round(weatherData.main.temp)}°C
+          </Text>
+          <Text style={styles.description}>
+            {weatherData.weather[0].description}
+          </Text>
+          <Button
+            title="View Details"
+            onPress={() =>
+              router.push({
+                pathname: "/details",
+                params: { weatherData: JSON.stringify(weatherData) },
+              })
+            }
+          />
+        </>
+      ) : (
+        <Text>Enter a city name and press 'Search' to get weather data.</Text>
+      )}
     </View>
   );
 };
@@ -82,6 +88,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#f0f0f0",
+    padding: 20,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+    width: "100%",
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    borderColor: "gray",
+    borderWidth: 1,
+    marginRight: 10,
+    paddingHorizontal: 10,
   },
   city: {
     fontSize: 32,
@@ -95,6 +115,12 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 24,
     marginTop: 10,
+    marginBottom: 20,
+  },
+  error: {
+    color: "red",
+    fontSize: 18,
+    textAlign: "center",
   },
 });
 
